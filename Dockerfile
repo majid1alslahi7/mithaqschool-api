@@ -16,10 +16,13 @@ COPY nginx.conf /etc/nginx/nginx.conf
 
 WORKDIR /var/www/html
 
+# عرض محتويات المجلد للتأكد من وجود الملفات
+RUN ls -la /var/www/html/
+RUN ls -la /var/www/html/public/ || echo "public folder not found"
+
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# إنشاء مجلد views إذا لم يكن موجوداً
 RUN mkdir -p /var/www/html/resources/views
 
 RUN composer install --no-interaction --optimize-autoloader --no-dev --ignore-platform-reqs && \
