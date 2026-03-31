@@ -1,0 +1,120 @@
+<?php
+
+use App\Http\Controllers\api;
+use App\Http\Controllers\api\SearchController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| api Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register api routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "api" middleware group. Make something great!
+|
+*/
+
+// Public route for api documentation or status
+Route::get('/', function () {
+    return response()->json([
+        'message' => 'Welcome to the MithaqSchool api v1.',
+        'documentation_url' => url('/api/documentation'),
+    ]);
+});
+
+// api Version 1 Routes
+Route::prefix('v1')->group(function () {
+
+    // Public routes
+    Route::post('/login', [api\apiAuthController::class, 'login'])->name('api.login');
+    Route::post('/signup', [api\apiAuthController::class, 'signUp'])->name('api.signup');
+    Route::post('/forgot-password', [api\apiAuthController::class, 'forgotPassword'])->name('api.password.request');
+    Route::post('/reset-password', [api\apiAuthController::class, 'resetPassword'])->name('api.password.store');
+
+    // Email verification handler
+    Route::get('/verify-email/{id}/{hash}', [api\apiAuthController::class, 'verifyEmail'])
+        ->middleware(['signed', 'throttle:6,1'])
+        ->name('api.verification.verify');
+
+    // Sanctum authenticated routes
+    Route::middleware('auth:sanctum')->name('api.v1.')->group(function () {
+
+        Route::post('/logout', [api\apiAuthController::class, 'logout'])->name('api.logout');
+        Route::get('/user', [api\UserController::class, 'profile'])->name('user');
+        Route::apiResource('users', api\UserController::class);
+
+        // Password and email verification routes
+        Route::put('/password', [api\apiAuthController::class, 'updatePassword'])->name('api.password.update');
+        Route::post('/email/verification-notification', [api\apiAuthController::class, 'sendVerificationEmail'])
+            ->middleware('throttle:6,1')
+            ->name('api.verification.send');
+
+        // Session management
+        Route::get('/sessions', [api\SessionController::class, 'index'])->name('sessions.index');
+        Route::delete('/sessions/{id}', [api\SessionController::class, 'destroy'])->name('sessions.destroy');
+
+Route::apiResource('academic-years', api\AcademicYearController::class);
+Route::apiResource('semesters', api\SemesterController::class);
+Route::apiResource('school-stages', api\SchoolStageController::class);
+Route::apiResource('grades', api\GradeController::class);
+Route::apiResource('classrooms', api\ClassroomController::class);
+Route::get('courses/search', [api\CourseController::class, 'search'])->name('courses.search');
+Route::apiResource('courses', api\CourseController::class);
+Route::apiResource('teacher-courses', api\TeacherCourseController::class);
+Route::apiResource('students', api\StudentController::class);
+Route::apiResource('guardians', api\GuardianController::class);
+Route::apiResource('teachers', api\TeacherController::class);
+Route::apiResource('schedules', api\ScheduleController::class);
+Route::get('schedules/teacher/{teacher}', [api\ScheduleController::class, 'teacher']);
+Route::get('schedules/course/{course}', [api\ScheduleController::class, 'course']);
+Route::get('schedules/classroom/{classroom}', [api\ScheduleController::class, 'classroom']);
+Route::apiResource('schools', api\SchoolController::class);
+Route::apiResource('permissions', api\PermissionController::class);
+
+        // Search Route
+        Route::get('/search', SearchController::class)->name('search');
+
+        // Dynamically include all api route files from the 'api' directory
+        foreach (glob(__DIR__.'/api/*.php') as $file) {
+            require $file;
+        }
+
+        // Roles & Permissions
+        Route::apiResource('roles', api\RoleController::class);
+        Route::apiResource('permissions', api\PermissionController::class);
+        Route::apiResource('course-classroom-teachers', api\CourseClassroomTeacherController::class);
+
+        // Assign/Revoke permissions & roles
+        Route::post('roles/assign-permission', [api\RolePermissionController::class, 'assignPermissionToRole']);
+        Route::post('roles/revoke-permission', [api\RolePermissionController::class, 'revokePermissionFromRole']);
+        Route::post('users/assign-role', [api\RolePermissionController::class, 'assignRoleToUser']);
+        Route::post('users/revoke-role', [api\RolePermissionController::class, 'revokeRoleFromUser']);
+        Route::post('users/give-permission', [api\RolePermissionController::class, 'givePermissionToUser']);
+        Route::post('users/revoke-permission', [api\RolePermissionController::class, 'revokePermissionFromUser']);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Financial System Routes (Added as requested)
+        |--------------------------------------------------------------------------
+        */
+        Route::apiResource('fee-types', api\FeeTypeController::class);
+        Route::apiResource('class-fees', api\ClassFeeController::class);
+        Route::apiResource('student-invoices', api\StudentInvoiceController::class);
+        Route::apiResource('invoice-items', api\InvoiceItemController::class);
+        Route::apiResource('payments', api\PaymentController::class);
+        Route::apiResource('adjustments', api\AdjustmentController::class);
+    });
+});
+Route::get('teachers/stats', [TeacherController::class, 'stats'])->name('teachers.stats');
+Route::apiResource('teachers', TeacherController::class);
+
+// Avatar routes
+Route::prefix('teachers/{teacher}/avatar')->name('teachers.avatar.')->group(function () {
+    Route::get('/', [TeacherController::class, 'getAvatar'])->name('show');
+    Route::post('/', [TeacherController::class, 'updateAvatar'])->name('update')->middleware('auth:sanctum');
+    Route::delete('/', [TeacherController::class, 'deleteAvatar'])->name('destroy')->middleware('auth:sanctum');
+});
+
+

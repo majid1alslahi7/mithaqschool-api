@@ -1,0 +1,10 @@
+Schema::create('course_classroom_teacher', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('course_id')->constrained()->onDelete('cascade');
+    $table->foreignId('classroom_id')->constrained()->onDelete('cascade');
+    $table->foreignId('teacher_id')->constrained()->onDelete('cascade');
+    $table->timestamps();
+
+    $table->unique(['course_id', 'classroom_id', 'teacher_id']);
+});
+قم باضافة هذا الجدول واضف له موديل وكونترولر api وريكوست وريسورس وروت api مع دوال البحث والفلترة 
