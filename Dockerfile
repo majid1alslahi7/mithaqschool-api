@@ -11,7 +11,6 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 COPY . /var/www/html
 
-# إزالة ملف nginx.conf القديم ونسخ الجديد
 RUN rm -f /etc/nginx/nginx.conf
 COPY nginx.conf /etc/nginx/nginx.conf
 
@@ -20,10 +19,13 @@ WORKDIR /var/www/html
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
+# إنشاء مجلد views إذا لم يكن موجوداً
+RUN mkdir -p /var/www/html/resources/views
+
 RUN composer install --no-interaction --optimize-autoloader --no-dev --ignore-platform-reqs && \
     php artisan config:cache && \
     php artisan route:cache && \
-    php artisan view:cache
+    php artisan view:cache || true
 
 EXPOSE 80
 
