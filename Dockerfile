@@ -9,20 +9,12 @@ RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd pdo_pgsql pgs
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-COPY . /var/www/html
-
-COPY nginx.conf /etc/nginx/nginx.conf
-
 WORKDIR /var/www/html
 
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+COPY . .
 
-# نشغل composer ونعرض الخطأ
-RUN composer install --no-interaction --optimize-autoloader --no-dev 2>&1
-
-RUN php artisan config:cache 2>&1
-RUN php artisan route:cache 2>&1
-RUN php artisan view:cache 2>&1
+# نجرب فقط عرض الإصدار
+RUN composer --version
 
 EXPOSE 80
 
