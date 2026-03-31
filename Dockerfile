@@ -20,7 +20,7 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 RUN composer install --no-interaction --optimize-autoloader --no-dev && \
     php artisan config:cache && \
     php artisan route:cache && \
-    php artisan migrate --force
+    php artisan view:cache
 
 EXPOSE 80
 
