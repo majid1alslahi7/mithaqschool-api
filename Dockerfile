@@ -17,10 +17,12 @@ WORKDIR /var/www/html
 
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-RUN composer install --no-interaction --optimize-autoloader --no-dev && \
-    php artisan config:cache && \
-    php artisan route:cache && \
-    php artisan view:cache
+# نشغل composer ونعرض الخطأ
+RUN composer install --no-interaction --optimize-autoloader --no-dev 2>&1
+
+RUN php artisan config:cache 2>&1
+RUN php artisan route:cache 2>&1
+RUN php artisan view:cache 2>&1
 
 EXPOSE 80
 
