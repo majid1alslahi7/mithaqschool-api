@@ -16,9 +16,11 @@ COPY nginx.conf /etc/nginx/nginx.conf
 
 WORKDIR /var/www/html
 
-# عرض محتويات المجلد للتأكد من وجود الملفات
-RUN ls -la /var/www/html/
-RUN ls -la /var/www/html/public/ || echo "public folder not found"
+# التحقق من وجود الملفات
+RUN echo "=== Checking files ===" && \
+    ls -la /var/www/html/ && \
+    ls -la /var/www/html/public/ && \
+    test -f /var/www/html/public/index.php && echo "✅ index.php found" || echo "❌ index.php NOT found"
 
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
