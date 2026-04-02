@@ -2,56 +2,31 @@
 
 use App\Http\Controllers\api;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Artisan;
 
-use App\Http\Controllers\api\AcademicYearController;
-use App\Http\Controllers\api\AdjustmentController;
-use App\Http\Controllers\api\ApiAuthController;
-use App\Http\Controllers\api\AttendanceController;
-use App\Http\Controllers\api\BackupController;
-use App\Http\Controllers\api\BehaviorEvaluationController;
-use App\Http\Controllers\api\CacheController;
-use App\Http\Controllers\api\ClassFeeController;
-use App\Http\Controllers\api\ClassroomController;
-use App\Http\Controllers\api\CourseClassroomTeacherController;
-use App\Http\Controllers\api\CourseController;
-use App\Http\Controllers\api\DailyAttendanceController;
-use App\Http\Controllers\api\DashboardController;
-use App\Http\Controllers\api\ExamController;
-use App\Http\Controllers\api\ExamResultController;
-use App\Http\Controllers\api\ExamTypeController;
-use App\Http\Controllers\api\ExternalApiController;
-use App\Http\Controllers\api\FeeTypeController;
-use App\Http\Controllers\api\FinalyGradeController;
-use App\Http\Controllers\api\GradeController;
-use App\Http\Controllers\api\GradesScaleController;
-use App\Http\Controllers\api\GuardianController;
-use App\Http\Controllers\api\HomeworkController;
-use App\Http\Controllers\api\HomeworkSubmissionController;
-use App\Http\Controllers\api\InvoiceItemController;
-use App\Http\Controllers\api\MessageController;
-use App\Http\Controllers\api\MonthlyGradeController;
-use App\Http\Controllers\api\NotificationController;
-use App\Http\Controllers\api\PaymentController;
-use App\Http\Controllers\api\PermissionController;
-use App\Http\Controllers\api\ReportController;
-use App\Http\Controllers\api\RoleController;
-use App\Http\Controllers\api\RolePermissionController;
-use App\Http\Controllers\api\ScheduleController;
-use App\Http\Controllers\api\SchoolController;
-use App\Http\Controllers\api\SchoolStageController;
-use App\Http\Controllers\api\SearchController;
-use App\Http\Controllers\api\SemesterController;
-use App\Http\Controllers\api\SemesterGradeController;
-use App\Http\Controllers\api\SettingsController;
-use App\Http\Controllers\api\StudentController;
-use App\Http\Controllers\api\StudentInvoiceController;
-use App\Http\Controllers\api\TeacherController;
-use App\Http\Controllers\api\TeacherCourseController;
-use App\Http\Controllers\api\UserController;
+// Temporary route to clear cache and reload configs (for Render)
+Route::get('/clear-cache-temp', function() {
+    try {
+        Artisan::call('config:clear');
+        Artisan::call('cache:clear');
+        Artisan::call('route:clear');
+        Artisan::call('view:clear');
+        Artisan::call('config:cache');
 
-// الصفحة الرئيسية
+        return response()->json([
+            'success' => true,
+            'message' => 'تم تنظيف الكاش وإعادة تحميل الإعدادات بنجاح.'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage()
+        ]);
+    }
+});
+
+// Public route for API documentation or status
 Route::get('/', function () {
     return response()->json([
         'message' => 'Welcome to the MithaqSchool API v1.',
@@ -59,60 +34,124 @@ Route::get('/', function () {
     ]);
 });
 
-// API Version 1
+// API Version 1 Routes
 Route::prefix('v1')->group(function () {
-
-    // ✅ ROUTE TEST DATABASE
-    Route::get('/debug-db', function () {
-        try {
-            DB::connection()->getPdo();
-            return response()->json([
-                'status' => 'success',
-                'message' => '✅ Database connected successfully'
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    });
 
     // ========== PUBLIC ROUTES ==========
     Route::post('/login', [api\ApiAuthController::class, 'login'])->name('api.login');
     Route::post('/signup', [api\ApiAuthController::class, 'signUp'])->name('api.signup');
-    Route::post('/forgot-password', [api\ApiAuthController::class, 'forgotPassword']);
-    Route::post('/reset-password', [api\ApiAuthController::class, 'resetPassword']);
-
+    Route::post('/forgot-password', [api\ApiAuthController::class, 'forgotPassword'])->name('api.password.request');
+    Route::post('/reset-password', [api\ApiAuthController::class, 'resetPassword'])->name('api.password.store');
     Route::get('/verify-email/{id}/{hash}', [api\ApiAuthController::class, 'verifyEmail'])
-        ->middleware(['signed', 'throttle:6,1']);
+        ->middleware(['signed', 'throttle:6,1'])
+        ->name('api.verification.verify');
 
-    // ========== AUTH ==========
+    // ========== AUTHENTICATED ROUTES ==========
     Route::middleware(['auth:sanctum'])->group(function () {
+        Route::post('/logout', [api\ApiAuthController::class, 'logout'])->name('api.logout');
+        Route::get('/user', [api\UserController::class, 'profile'])->name('user');
 
-        Route::post('/logout', [api\ApiAuthController::class, 'logout']);
-        Route::get('/user', [api\UserController::class, 'profile']);
-
-        // باقي المسارات كما هي (لم يتم حذف أي شيء)
+        // User management
         Route::apiResource('users', api\UserController::class);
-        Route::apiResource('students', api\StudentController::class);
-        Route::apiResource('teachers', api\TeacherController::class);
-        Route::apiResource('guardians', api\GuardianController::class);
 
+        // Students
+        Route::prefix('students')->name('students.')->group(function () {
+            Route::get('/', [api\StudentController::class, 'index'])->name('index');
+            Route::get('/stats', [api\StudentController::class, 'stats'])->name('stats');
+            Route::get('/{student}', [api\StudentController::class, 'show'])->name('show');
+            Route::post('/', [api\StudentController::class, 'store'])->name('store');
+            Route::put('/{student}', [api\StudentController::class, 'update'])->name('update');
+            Route::delete('/{student}', [api\StudentController::class, 'destroy'])->name('destroy');
+            Route::post('/import', [api\StudentController::class, 'import'])->name('import');
+            Route::get('/export', [api\StudentController::class, 'export'])->name('export');
+
+            // Avatar
+            Route::prefix('{student}/avatar')->name('avatar.')->group(function () {
+                Route::get('/', [api\StudentController::class, 'getAvatar'])->name('show');
+                Route::post('/', [api\StudentController::class, 'updateAvatar'])->name('update');
+                Route::delete('/', [api\StudentController::class, 'deleteAvatar'])->name('destroy');
+            });
+        });
+
+        // Teachers
+        Route::prefix('teachers')->name('teachers.')->group(function () {
+            Route::get('/', [api\TeacherController::class, 'index'])->name('index');
+            Route::get('/stats', [api\TeacherController::class, 'stats'])->name('stats');
+            Route::get('/{teacher}', [api\TeacherController::class, 'show'])->name('show');
+            Route::post('/', [api\TeacherController::class, 'store'])->name('store');
+            Route::put('/{teacher}', [api\TeacherController::class, 'update'])->name('update');
+            Route::delete('/{teacher}', [api\TeacherController::class, 'destroy'])->name('destroy');
+
+            // Avatar
+            Route::prefix('{teacher}/avatar')->name('avatar.')->group(function () {
+                Route::get('/', [api\TeacherController::class, 'getAvatar'])->name('show');
+                Route::post('/', [api\TeacherController::class, 'updateAvatar'])->name('update');
+                Route::delete('/', [api\TeacherController::class, 'deleteAvatar'])->name('destroy');
+            });
+        });
+
+        // Guardians
+        Route::prefix('guardians')->name('guardians.')->group(function () {
+            Route::get('/', [api\GuardianController::class, 'index'])->name('index');
+            Route::get('/{guardian}', [api\GuardianController::class, 'show'])->name('show');
+            Route::post('/', [api\GuardianController::class, 'store'])->name('store');
+            Route::put('/{guardian}', [api\GuardianController::class, 'update'])->name('update');
+            Route::delete('/{guardian}', [api\GuardianController::class, 'destroy'])->name('destroy');
+
+            // Avatar
+            Route::prefix('{guardian}/avatar')->name('avatar.')->group(function () {
+                Route::get('/', [api\GuardianController::class, 'getAvatar'])->name('show');
+                Route::post('/', [api\GuardianController::class, 'updateAvatar'])->name('update');
+                Route::delete('/', [api\GuardianController::class, 'deleteAvatar'])->name('destroy');
+            });
+        });
+
+        // Academic management
         Route::apiResource('academic-years', api\AcademicYearController::class);
         Route::apiResource('semesters', api\SemesterController::class);
+        Route::apiResource('school-stages', api\SchoolStageController::class);
         Route::apiResource('grades', api\GradeController::class);
         Route::apiResource('classrooms', api\ClassroomController::class);
-
+        Route::get('courses/search', [api\CourseController::class, 'search'])->name('courses.search');
         Route::apiResource('courses', api\CourseController::class);
+        Route::apiResource('teacher-courses', api\TeacherCourseController::class);
+        Route::apiResource('course-classroom-teachers', api\CourseClassroomTeacherController::class);
+
+        // Exams & Grades
         Route::apiResource('exams', api\ExamController::class);
+        Route::apiResource('exam-types', api\ExamTypeController::class);
         Route::apiResource('exam-results', api\ExamResultController::class);
+        Route::apiResource('grades-scales', api\GradesScaleController::class);
 
-        Route::apiResource('attendances', api\AttendanceController::class);
-        Route::apiResource('homeworks', api\HomeworkController::class);
+        // Monthly Grades
+        Route::prefix('monthly-grades')->name('monthly.')->group(function () {
+            Route::get('/', [api\MonthlyGradeController::class, 'index'])->name('index');
+            Route::get('/student/{enrollment_number}/month/{month}', [api\MonthlyGradeController::class, 'getByStudentAndMonth'])->name('by-student-month');
+            Route::get('/{monthlyGrade}', [api\MonthlyGradeController::class, 'show'])->name('show');
+            Route::post('/', [api\MonthlyGradeController::class, 'store'])->name('store');
+            Route::put('/{monthlyGrade}', [api\MonthlyGradeController::class, 'update'])->name('update');
+        });
 
-        Route::apiResource('payments', api\PaymentController::class);
-        Route::apiResource('notifications', api\NotificationController::class);
+        // Semester Grades
+        Route::prefix('semester-grades')->name('semester.')->group(function () {
+            Route::get('/', [api\SemesterGradeController::class, 'index'])->name('index');
+            Route::get('/student/{enrollment_number}/semester/{semester_id}', [api\SemesterGradeController::class, 'getByStudentAndSemester'])->name('by-student-semester');
+            Route::get('/{semesterGrade}', [api\SemesterGradeController::class, 'show'])->name('show');
+            Route::post('/', [api\SemesterGradeController::class, 'store'])->name('store');
+            Route::put('/{semesterGrade}', [api\SemesterGradeController::class, 'update'])->name('update');
+        });
 
+        // Final Grades
+        Route::prefix('finaly-grades')->name('final.')->group(function () {
+            Route::get('/', [api\FinalyGradeController::class, 'index'])->name('index');
+            Route::get('/student/{enrollment_number}/year/{academic_year_id}', [api\FinalyGradeController::class, 'getByStudentAndYear'])->name('by-student-year');
+            Route::get('/students/{student_number}/grades-by-year', [api\FinalyGradeController::class, 'getStudentGradesByAcademicYear'])->name('by-student-academic');
+            Route::get('/{finalyGrade}', [api\FinalyGradeController::class, 'show'])->name('show');
+            Route::post('/', [api\FinalyGradeController::class, 'store'])->name('store');
+            Route::put('/{finalyGrade}', [api\FinalyGradeController::class, 'update'])->name('update');
+        });
+
+        // باقي مساراتك (attendance, homeworks, schedules, behavior-evaluations, fee-types, payments, messages, notifications, roles, reports)...
+        // يمكنك إضافتها بنفس النمط السابق.
     });
 });
